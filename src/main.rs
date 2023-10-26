@@ -1,4 +1,10 @@
-use std::{ fmt, fs, process, env, error::Error, path::PathBuf };
+use std::{ 
+    fs, 
+    process, 
+    env, 
+    error::Error, 
+    path::PathBuf 
+};
 use serde::Deserialize;
 use serde_json;
 
@@ -17,15 +23,6 @@ fn main() {
 enum Terminal {
     TERMINAL,
     KITTY
-}
-
-impl fmt::Display for Terminal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Terminal::KITTY => write!(f, "Kitty"),
-            _ => write!(f, "Terminal")
-        }
-    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -85,6 +82,8 @@ impl Dirspread {
         Ok(())
     }
 
+    // If there is no config, find all the directories within the parent and create a default entry
+    // for them
     fn get_directories_if_no_config(&mut self) -> Result<(), Box<dyn Error>> {
         if self.dirs.is_some() {
             return Ok(());
@@ -168,6 +167,7 @@ impl Dirspread {
     }
 
     fn open_terminals_kitty(&self) -> Result<(), Box<dyn Error>> {
+        // Open a new template os-window
         let mut cmd = process::Command::new("kitty");
         cmd.arg("@")
             .arg("launch")
@@ -181,6 +181,7 @@ impl Dirspread {
             
         cmd.output()?;
 
+        // Open a tab for each directory
         if let Some(dirs) = &self.dirs {
             for dir in dirs {
                 let dir_name = dir.dir_name.to_owned();
@@ -200,6 +201,7 @@ impl Dirspread {
 
                     cmd.output()?;
                     
+                    // Run the startup command specified in the config folder
                     if let Some(on_open) = &dir.on_open {
                         process::Command::new("kitty")
                             .arg("@")
@@ -212,6 +214,7 @@ impl Dirspread {
             }
         }
 
+        // Close the unused template window
         process::Command::new("kitty")
             .arg("@")
             .arg("close-tab")
@@ -232,6 +235,7 @@ impl Dirspread {
         Ok(())
     }
 
+    // Translate relative paths to absolute paths
     fn get_full_path(dir_name: String, parent: &PathBuf) -> Option<String> {
         let mut path = PathBuf::from(parent);
         path.push(dir_name);
@@ -244,6 +248,7 @@ impl Dirspread {
     }
 }
 
+// Check which terminal is calling the script
 fn get_terminal() -> Terminal {
     if let Some(_) = env::var_os("KITTY_WINDOW_ID") {
         return Terminal::KITTY;
@@ -253,6 +258,7 @@ fn get_terminal() -> Terminal {
 }
 
 
+// Get path of the directory where the script was called
 fn get_dirspread_parent() -> PathBuf {
     let parent_dir = env::args().nth(1);
     let parent_dir = if parent_dir.is_some() {
