@@ -67,9 +67,6 @@ impl Dirspread {
     fn set_from_config(&mut self) -> Result<(), Box<dyn Error>> {
         let mut config_path = PathBuf::from(&self.parent_dir);
         config_path.push("dsconfig.json");
-
-        println!("{:?}", config_path);
-
         if config_path.exists() && config_path.is_file() {
             self.save_config(config_path)?;        
         }
@@ -156,7 +153,6 @@ impl Dirspread {
                             .output()?;
                     }
 
-
                     // Run the on_open command
                     if let Some(on_open) = &dir.on_open {
                         let on_open = on_open.to_owned();
@@ -164,7 +160,6 @@ impl Dirspread {
                             .arg("-e")
                             .arg(format!("tell application \"Terminal\" to do script \"{on_open}\" in selected tab of the front window"))
                             .output()?;
-
                     }
                 }
             }
@@ -186,12 +181,10 @@ impl Dirspread {
             
         cmd.output()?;
 
-
         if let Some(dirs) = &self.dirs {
             for dir in dirs {
                 let dir_name = dir.dir_name.to_owned();
                 if let Some(dir_path) = Self::get_full_path(dir_name, &self.parent_dir) {
-                    println!("{:?}", dir_path);
                     let mut cmd = process::Command::new("kitty");
                     cmd.arg("@")
                         .arg("launch")
@@ -215,7 +208,6 @@ impl Dirspread {
                             .arg("\\r")
                             .output()?;
                     }
-
                 }
             }
         }
@@ -238,7 +230,6 @@ impl Dirspread {
         };
 
         Ok(())
-    
     }
 
     fn get_full_path(dir_name: String, parent: &PathBuf) -> Option<String> {
@@ -251,7 +242,6 @@ impl Dirspread {
 
         Some(String::from(path.to_string_lossy()))
     }
-
 }
 
 fn get_terminal() -> Terminal {
