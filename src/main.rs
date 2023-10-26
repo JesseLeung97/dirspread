@@ -173,6 +173,59 @@ impl Dirspread {
     }
 
     fn open_terminals_kitty(&self) -> Result<(), Box<dyn Error>> {
+        let mut cmd = process::Command::new("kitty");
+        cmd.arg("@")
+            .arg("launch")
+            .arg("--type")
+            .arg("os-window");
+
+        if let Some(win_name) = &self.win_name {
+            cmd.arg("--os-window-title")
+                .arg(win_name);
+        }
+            
+        cmd.output()?;
+
+
+        if let Some(dirs) = &self.dirs {
+            for dir in dirs {
+                let dir_name = dir.dir_name.to_owned();
+                if let Some(dir_path) = Self::get_full_path(dir_name, &self.parent_dir) {
+                    println!("{:?}", dir_path);
+                    let mut cmd = process::Command::new("kitty");
+                    cmd.arg("@")
+                        .arg("launch")
+                        .arg("--type")
+                        .arg("tab")
+                        .arg("--cwd")
+                        .arg(dir_path);
+                    
+                    if let Some(disp_name) = &dir.disp_name {
+                        cmd.arg("--tab-title")
+                            .arg(disp_name);
+                    }
+
+                    cmd.output()?;
+                    
+                    if let Some(on_open) = &dir.on_open {
+                        process::Command::new("kitty")
+                            .arg("@")
+                            .arg("send-text")
+                            .arg(on_open)
+                            .arg("\\r")
+                            .output()?;
+                    }
+
+                }
+            }
+        }
+
+        process::Command::new("kitty")
+            .arg("@")
+            .arg("close-tab")
+            .arg("--match")
+            .arg("index:0")
+            .output()?;
 
         Ok(())
     }
