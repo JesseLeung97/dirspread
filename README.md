@@ -27,8 +27,11 @@ dirspread /Users/myuser/myprojects/myprojectfolder
 If no configuration file is present, dirspread will attempt to open a terminal tab for all directories included in the current directory.  This is not usually the desired behavior and can be remedied by including a `dsconfig.json` file in the directory you are attempting to dirspread.  
 
 `winName?: String` The title (top center) of the new terminal window (Optional)
+
 `ignoredDirs?: String[]` A list of directory names dirspread should ignore (Optional)
+
 `dirs?: Directory[]` A list of directories which will be opened in a new tab (Optional)
+
 ```
 Directory {
     dispName?: String,  // The tab title (Optional)
