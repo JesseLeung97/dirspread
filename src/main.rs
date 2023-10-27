@@ -12,11 +12,14 @@ mod dirspread_error;
 
 fn main() {
     let terminal = get_terminal();
-    let parent_path = get_dirspread_parent();
-    let mut ds = Dirspread::new(parent_path, terminal);
-    ds.set_from_config().expect("There was a problem with the dsconfig file.");
-    ds.get_directories_if_no_config().expect("There was a problem finding dirs within the parent directory");
-    ds.open_terminals().expect("There was a problem spreading the directory.");
+    if let Some(parent_path) = get_dirspread_parent() {
+        let mut ds = Dirspread::new(parent_path, terminal);
+        ds.set_from_config().expect("There was a problem with the dsconfig file.");
+        ds.get_directories_if_no_config().expect("There was a problem finding dirs within the parent directory");
+        ds.open_terminals().expect("There was a problem spreading the directory.");
+    } else {
+        println!("There was a problem spreading the given directory.");
+    }
 }
 
 #[derive(Debug)]
@@ -120,6 +123,8 @@ impl Dirspread {
         process::Command::new("osascript")
             .arg("-e")
             .arg("tell application \"Terminal\" to activate")
+            .arg("-e")
+            .arg("tell application \"System Events\" to tell process \"Terminal\" to keystroke \"n\" using command down")
             .output()?;
 
         if let Some(win_name) = &self.win_name {
@@ -163,6 +168,17 @@ impl Dirspread {
                 }
             }
         }
+
+        // Close template tab
+        process::Command::new("osascript")
+            .arg("-e")
+            .arg("tell application \"System Events\" to tell process \"Terminal\" to keystroke (ASCII character 9) using control down")
+            .output()?;
+        process::Command::new("osascript")
+            .arg("-e")
+            .arg("tell application \"System Events\" to tell process \"Terminal\" to keystroke \"w\" using command down")
+            .output()?;
+
         Ok(())
     }
 
@@ -259,14 +275,14 @@ fn get_terminal() -> Terminal {
 
 
 // Get path of the directory where the script was called
-fn get_dirspread_parent() -> PathBuf {
+fn get_dirspread_parent() -> Option<PathBuf> {
     let parent_dir = env::args().nth(1);
     let parent_dir = if parent_dir.is_some() {
         let dir_path = PathBuf::from(parent_dir.unwrap());
         if dir_path.exists() && dir_path.is_dir() {
             fs::canonicalize(dir_path).expect("This directory cannot be spread.")
         } else {
-            panic!("The given directory could not be found");
+            return None;
         }
     } else {
         let mut curr_dir = env::current_dir().expect("This directory cannot be spread.");
@@ -274,6 +290,6 @@ fn get_dirspread_parent() -> PathBuf {
         fs::canonicalize(curr_dir).expect("This directory cannot be spread.")
     };
 
-    parent_dir
+    Some(parent_dir)
 }
 
