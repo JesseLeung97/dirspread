@@ -1,6 +1,5 @@
 use std::{ 
     fs, 
-    process, 
     env, 
     error::Error, 
     path::PathBuf 
@@ -9,6 +8,7 @@ use serde::Deserialize;
 use serde_json;
 
 mod dirspread_error;
+mod macros;
 
 fn main() {
     let terminal = get_terminal();
@@ -120,81 +120,83 @@ impl Dirspread {
     }
 
     fn open_terminals_macos(&self) -> Result<(), Box<dyn Error>> {
-        process::Command::new("osascript")
-            .arg("-e")
-            .arg("tell application \"Terminal\" to activate")
-            .arg("-e")
-            .arg("tell application \"System Events\" to tell process \"Terminal\" to keystroke \"n\" using command down")
-            .output()?;
+        let mut cmd = terminal!(
+            "-e", 
+            "tell application \"Terminal\" to activate", 
+            "-e", 
+            "tell application \"System Events\" to tell process \"Terminal\" to keystroke \"n\"n using command down"
+        );
+        cmd.output()?;
 
         if let Some(win_name) = &self.win_name {
             let win_name = win_name.to_owned();
-            process::Command::new("osascript")
-                .arg("-e")
-                .arg(format!("tell application \"Terminal\" to set custom title of the front window to \"{win_name}\""))
-                .output()?;
+            let mut cmd = terminal!(
+                "-e", 
+                format!("tell application \"Terminal\" to set custom title of front window to \"{win_name}\"")
+            );
+            cmd.output()?;
         }
 
         if let Some(dirs) = &self.dirs {
             for dir in dirs {
                 let dir_name = dir.dir_name.to_owned();
                 if let Some(dir_path) = Self::get_full_path(dir_name, &self.parent_dir) {
-                    process::Command::new("osascript")
-                        .arg("-e")
-                        .arg("tell application \"System Events\" to tell process \"Terminal\" to keystroke \"t\" using command down")
-                        .output()?;
-                    process::Command::new("osascript")
-                        .arg("-e")
-                        .arg(format!("tell application \"Terminal\" to do script \"cd {dir_path}\" in selected tab of the front window"))
-                        .output()?;
+                    let mut cmd = terminal!(
+                        "-e", 
+                        "tell application \"System Events\" to tell process \"Terminal\" to keystroke \"t\" using command down"
+                    );
+                    cmd.output()?;
+                    let mut cmd = terminal!(
+                        "-e",
+                        format!("tell application \"Terminal\" to do script \"cd {dir_path}\" in selected tab of front window")
+                    );
+                    cmd.output()?;
 
                     // Set display name if exists
                     if let Some(disp_name) = &dir.disp_name {
                         let disp_name = disp_name.to_owned();
-                        process::Command::new("osascript")
-                            .arg("-e")
-                            .arg(format!("tell application \"Terminal\" to set custom title of the selected tab of the front window to \"{disp_name}\""))
-                            .output()?;
+                        let mut cmd = terminal!(
+                            "-e",
+                            format!("tell application \"Terminal\" to set custom title of selected tab of front window to \"{disp_name}\"")
+                        );
+                        cmd.output()?;
                     }
 
                     // Run the on_open command
                     if let Some(on_open) = &dir.on_open {
                         let on_open = on_open.to_owned();
-                        process::Command::new("osascript")
-                            .arg("-e")
-                            .arg(format!("tell application \"Terminal\" to do script \"{on_open}\" in selected tab of the front window"))
-                            .output()?;
+                        let mut cmd = terminal!(
+                            "-e",
+                            format!("tell application \"Terminal\" to do script \"{on_open}\" in selected tab of front window")
+                        );
+                        cmd.output()?;
                     }
                 }
             }
         }
 
         // Close template tab
-        process::Command::new("osascript")
-            .arg("-e")
-            .arg("tell application \"System Events\" to tell process \"Terminal\" to keystroke (ASCII character 9) using control down")
-            .output()?;
-        process::Command::new("osascript")
-            .arg("-e")
-            .arg("tell application \"System Events\" to tell process \"Terminal\" to keystroke \"w\" using command down")
-            .output()?;
-
+        let mut cmd = terminal!(
+            "-e",
+            "tell application \"System Events\" to tell process \"Terminal\" to keystroke (ASCII character 9) using control down"
+        );
+        cmd.output()?;
+        let mut cmd = terminal!(
+            "-e",
+            "tell application \"System Events\" to tell process \"Terminal\" to keystroke \"w\" using command down"
+        );
+        cmd.output()?;
+        
         Ok(())
     }
 
     fn open_terminals_kitty(&self) -> Result<(), Box<dyn Error>> {
         // Open a new template os-window
-        let mut cmd = process::Command::new("kitty");
-        cmd.arg("@")
-            .arg("launch")
-            .arg("--type")
-            .arg("os-window");
-
+        let mut cmd = kitty!("@", "launch", "--type", "os-window");
         if let Some(win_name) = &self.win_name {
             cmd.arg("--os-window-title")
                 .arg(win_name);
         }
-            
         cmd.output()?;
 
         // Open a tab for each directory
@@ -202,41 +204,25 @@ impl Dirspread {
             for dir in dirs {
                 let dir_name = dir.dir_name.to_owned();
                 if let Some(dir_path) = Self::get_full_path(dir_name, &self.parent_dir) {
-                    let mut cmd = process::Command::new("kitty");
-                    cmd.arg("@")
-                        .arg("launch")
-                        .arg("--type")
-                        .arg("tab")
-                        .arg("--cwd")
-                        .arg(dir_path);
-                    
+                    let mut cmd = kitty!("@", "launch", "--type", "tab", "--cwd", dir_path);
                     if let Some(disp_name) = &dir.disp_name {
                         cmd.arg("--tab-title")
                             .arg(disp_name);
                     }
-
                     cmd.output()?;
-                    
+
                     // Run the startup command specified in the config folder
                     if let Some(on_open) = &dir.on_open {
-                        process::Command::new("kitty")
-                            .arg("@")
-                            .arg("send-text")
-                            .arg(on_open)
-                            .arg("\\r")
-                            .output()?;
+                        let mut cmd = kitty!("@", "send-text", on_open, "\\r");
+                        cmd.output()?;
                     }
                 }
             }
         }
 
         // Close the unused template window
-        process::Command::new("kitty")
-            .arg("@")
-            .arg("close-tab")
-            .arg("--match")
-            .arg("index:0")
-            .output()?;
+        let mut cmd = kitty!("@", "close-tab", "--match", "index:0");
+        cmd.output()?;
 
         Ok(())
     }
@@ -272,7 +258,6 @@ fn get_terminal() -> Terminal {
 
     Terminal::TERMINAL
 }
-
 
 // Get path of the directory where the script was called
 fn get_dirspread_parent() -> Option<PathBuf> {
