@@ -270,8 +270,8 @@ fn get_dirspread_parent() -> Option<PathBuf> {
             return None;
         }
     } else {
-        let mut curr_dir = env::current_dir().expect("This directory cannot be spread.");
-        curr_dir.pop();
+        let curr_dir = env::current_dir().expect("This directory cannot be spread.");
+        println!("{:?}", curr_dir);
         fs::canonicalize(curr_dir).expect("This directory cannot be spread.")
     };
 
