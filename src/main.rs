@@ -8,7 +8,8 @@ use serde::Deserialize;
 use serde_json;
 
 mod dirspread_error;
-mod macros;
+mod terminals;
+use terminals::{ macos::Macos, kitty::Kitty, terminal_interface::TerminalInterface };
 
 fn main() {
     let terminal = get_terminal();
@@ -23,7 +24,7 @@ fn main() {
 }
 
 #[derive(Debug)]
-enum Terminal {
+pub enum Terminal {
     TERMINAL,
     KITTY
 }
@@ -38,14 +39,14 @@ struct ConfigFile {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct Directory {
+pub struct Directory {
     pub disp_name: Option<String>,
     pub dir_name: String,
     pub on_open: Option<String>
 }
 
 #[derive(Debug)]
-struct Dirspread {
+pub struct Dirspread {
     pub win_name: Option<String>,
     pub parent_dir: PathBuf,
     pub terminal: Terminal,
@@ -119,119 +120,10 @@ impl Dirspread {
         Ok(())
     }
 
-    fn open_terminals_macos(&self) -> Result<(), Box<dyn Error>> {
-        let mut cmd = terminal!(
-            "-e", 
-            "tell application \"Terminal\" to activate", 
-            "-e", 
-            "tell application \"System Events\" to tell process \"Terminal\" to keystroke \"n\"n using command down"
-        );
-        cmd.output()?;
-
-        if let Some(win_name) = &self.win_name {
-            let win_name = win_name.to_owned();
-            let mut cmd = terminal!(
-                "-e", 
-                format!("tell application \"Terminal\" to set custom title of front window to \"{win_name}\"")
-            );
-            cmd.output()?;
-        }
-
-        if let Some(dirs) = &self.dirs {
-            for dir in dirs {
-                let dir_name = dir.dir_name.to_owned();
-                if let Some(dir_path) = Self::get_full_path(dir_name, &self.parent_dir) {
-                    let mut cmd = terminal!(
-                        "-e", 
-                        "tell application \"System Events\" to tell process \"Terminal\" to keystroke \"t\" using command down"
-                    );
-                    cmd.output()?;
-                    let mut cmd = terminal!(
-                        "-e",
-                        format!("tell application \"Terminal\" to do script \"cd {dir_path}\" in selected tab of front window")
-                    );
-                    cmd.output()?;
-
-                    // Set display name if exists
-                    if let Some(disp_name) = &dir.disp_name {
-                        let disp_name = disp_name.to_owned();
-                        let mut cmd = terminal!(
-                            "-e",
-                            format!("tell application \"Terminal\" to set custom title of selected tab of front window to \"{disp_name}\"")
-                        );
-                        cmd.output()?;
-                    }
-
-                    // Run the on_open command
-                    if let Some(on_open) = &dir.on_open {
-                        let on_open = on_open.to_owned();
-                        let mut cmd = terminal!(
-                            "-e",
-                            format!("tell application \"Terminal\" to do script \"{on_open}\" in selected tab of front window")
-                        );
-                        cmd.output()?;
-                    }
-                }
-            }
-        }
-
-        // Close template tab
-        let mut cmd = terminal!(
-            "-e",
-            "tell application \"System Events\" to tell process \"Terminal\" to keystroke (ASCII character 9) using control down"
-        );
-        cmd.output()?;
-        let mut cmd = terminal!(
-            "-e",
-            "tell application \"System Events\" to tell process \"Terminal\" to keystroke \"w\" using command down"
-        );
-        cmd.output()?;
-        
-        Ok(())
-    }
-
-    fn open_terminals_kitty(&self) -> Result<(), Box<dyn Error>> {
-        // Open a new template os-window
-        let mut cmd = kitty!("@", "launch", "--type", "os-window");
-        if let Some(win_name) = &self.win_name {
-            cmd.arg("--os-window-title")
-                .arg(win_name);
-        }
-        cmd.output()?;
-
-        // Open a tab for each directory
-        if let Some(dirs) = &self.dirs {
-            for dir in dirs {
-                let dir_name = dir.dir_name.to_owned();
-                if let Some(dir_path) = Self::get_full_path(dir_name, &self.parent_dir) {
-                    let mut cmd = kitty!("@", "launch", "--type", "tab", "--cwd", dir_path);
-                    if let Some(disp_name) = &dir.disp_name {
-                        cmd.arg("--tab-title")
-                            .arg(disp_name);
-                    }
-                    cmd.output()?;
-
-                    // Run the startup command specified in the config folder
-                    if let Some(on_open) = &dir.on_open {
-                        let mut cmd = kitty!("@", "send-text", on_open, "\\r");
-                        cmd.output()?;
-                    }
-                }
-            }
-        }
-
-        // Close the unused template window
-        let mut cmd = kitty!("@", "close-tab", "--match", "index:0");
-        cmd.output()?;
-
-        Ok(())
-    }
-
-
     fn open_terminals(&self) -> Result<(), Box<dyn Error>> {
         match &self.terminal {
-            Terminal::KITTY => &self.open_terminals_kitty(),
-            Terminal::TERMINAL => &self.open_terminals_macos()
+            Terminal::KITTY => Kitty::open_terminals(&self)?,
+            Terminal::TERMINAL => Macos::open_terminals(&self)?
         };
 
         Ok(())
