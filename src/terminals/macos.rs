@@ -37,6 +37,7 @@ impl TerminalInterface for Macos {
             for dir in dirs {
                 let dir_name = dir.dir_name.to_owned();
                 if let Some(dir_path) = Dirspread::get_full_path(dir_name, &dirspread.parent_dir) {
+                    // Open new terminal tab
                     let mut cmd = terminal!(
                         "-e", 
                         "tell application \"System Events\" to tell process \"Terminal\" to keystroke \"t\" using command down"

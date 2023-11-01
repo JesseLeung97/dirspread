@@ -29,6 +29,7 @@ impl TerminalInterface for Kitty {
             for dir in dirs {
                 let dir_name = dir.dir_name.to_owned();
                 if let Some(dir_path) = Dirspread::get_full_path(dir_name, &dirspread.parent_dir) {
+                    // Open terminal window
                     let mut cmd = kitty!("@", "launch", "--type", "tab", "--cwd", dir_path);
                     if let Some(disp_name) = &dir.disp_name {
                         cmd.arg("--tab-title")
